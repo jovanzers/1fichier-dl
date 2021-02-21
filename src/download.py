@@ -29,8 +29,9 @@ def download(worker, payload={'dl_no_ssl': 'on', 'dlinline': 'on'}):
     url = worker.link
     i = 1
     while True:
-        if worker.stopped: return None
-        if worker.paused: return None
+        if worker.stopped or worker.paused:
+            return None if not worker.dl_name else worker.dl_name
+
         worker.signals.update_signal.emit(worker.data, f'Bypassing ({i})', '')
         
         proxy = get_proxy()
@@ -42,19 +43,18 @@ def download(worker, payload={'dl_no_ssl': 'on', 'dlinline': 'on'}):
             i += 1
             pass
         else:
-            if worker.stopped: return None
-            if worker.paused: return None
+            return None if not worker.dl_name else worker.dl_name
             worker.signals.update_signal.emit(worker.data, 'Bypassed', '')
             # Proxy worked.
             break
 
     html = lxml.html.fromstring(r.content)
 
-    try:
+    if 'Expired Link' in r.text:
+        download(worker)
+    else:
         old_url = url
         url = html.xpath('/html/body/div[4]/div[2]/a')[0].get('href')
-    except:
-        download(worker)
     
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.131 Safari/537.36',
@@ -64,7 +64,7 @@ def download(worker, payload={'dl_no_ssl': 'on', 'dlinline': 'on'}):
 
     r = requests.get(url, stream=True, headers=headers)
 
-    try:
+    if r.headers['Content-Disposition']:
         name = r.headers['Content-Disposition'].split('"')[1]
 
         if worker.dl_name:
@@ -74,10 +74,9 @@ def download(worker, payload={'dl_no_ssl': 'on', 'dlinline': 'on'}):
             while os.path.exists(f'({i}) {name}'):
                 i += 1
             name = f'({i}) {name}'
-            
-        if worker.stopped: return name
-        if worker.paused: return name
-    except:
+
+        if worker.stopped or worker.paused: return name
+    else:
         download(worker)
 
 
@@ -92,7 +91,6 @@ def download(worker, payload={'dl_no_ssl': 'on', 'dlinline': 'on'}):
             bytes_read += len(chunk)
             total_per = 100 * (float(bytes_read) + downloaded_size)
             total_per /= float(r.headers['Content-Length']) + downloaded_size
-            if worker.stopped: return name
-            if worker.paused: return name
+            if worker.stopped or worker.paused: return name
             worker.signals.update_signal.emit(worker.data, 'Downloading', f'{round(total_per, 1)}%')
     worker.signals.update_signal.emit(worker.data, 'Complete', '')
