@@ -24,27 +24,24 @@ def alert(text):
     msg.exec_()
 
 class Gui_Actions:
-    def __init__(self):
+    def __init__(self, gui):
         self.thread = QThreadPool()
         self.download_workers = []
+        self.gui = gui
 
         # Load cached downloads
         with open(abs('cache/cache'), 'rb') as f:
             try:
                 cached_downloads = pickle.load(f)
                 for download in cached_downloads:
-                    self.links = download[0]
+                    self.gui.links = download[0]
                     self.add_links_action(True, download[1])
             except EOFError:
                 print('No cached downloads.')
-    
-    def set_table(self, table, table_model):
-        self.table = table
-        self.table_model = table_model
 
     def check_selection(self):
         selection = []
-        for index in self.table.selectionModel().selectedRows():
+        for index in self.gui.table.selectionModel().selectedRows():
             selection.append(index.row())
         return selection
     
@@ -77,18 +74,18 @@ class Gui_Actions:
                     self.download_workers[i].pause()
 
     def add_links_action(self, state, dl_name = ''):
-        worker = Filter_Worker(self.links, dl_name)
+        worker = Filter_Worker(self.gui.links, dl_name)
 
-        worker.signals.download_receive_signal.connect(self.download_receive_signal)
+        worker.signals.download_signal.connect(self.download_receive_signal)
         worker.signals.alert_signal.connect(alert)
         
         self.thread.start(worker)
     
     def download_receive_signal(self, row, link, append_row = True, dl_name = ''):
         if append_row:
-            self.table_model.appendRow(row)
+            self.gui.table_model.appendRow(row)
 
-        worker = Download_Worker(link, self.table_model, row, dl_name)
+        worker = Download_Worker(link, self.gui.table_model, row, dl_name)
         worker.signals.update_signal.connect(self.update_receive_signal)
         worker.signals.unpause_signal.connect(self.download_receive_signal)
 
@@ -116,14 +113,13 @@ class Gui_Actions:
 
 class Gui:
     def __init__(self):
-        self.actions = Gui_Actions()
+        self.actions = Gui_Actions(self)
         app = QApplication(sys.argv)
         app.setWindowIcon(QIcon(abs('ico.ico')))
         app.setStyle('Fusion')
         app.aboutToQuit.connect(self.actions.exit_handler)
         self.main_win()
         self.add_links_win()
-        self.actions.set_table(self.table, self.table_model)
         sys.exit(app.exec_())
     
     def main_win(self):
