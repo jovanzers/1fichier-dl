@@ -29,7 +29,7 @@ def download(worker, payload={'dl_no_ssl': 'on', 'dlinline': 'on'}):
     url = worker.link
     i = 1
     while True:
-        if not worker.data: return None
+        if worker.stopped: return None
         if worker.paused: return None
         worker.signals.update_signal.emit(worker.data, f'Bypassing ({i})', '')
         
@@ -42,7 +42,7 @@ def download(worker, payload={'dl_no_ssl': 'on', 'dlinline': 'on'}):
             i += 1
             pass
         else:
-            if not worker.data: return None
+            if worker.stopped: return None
             if worker.paused: return None
             worker.signals.update_signal.emit(worker.data, 'Bypassed', '')
             # Proxy worked.
@@ -66,17 +66,21 @@ def download(worker, payload={'dl_no_ssl': 'on', 'dlinline': 'on'}):
 
     try:
         name = r.headers['Content-Disposition'].split('"')[1]
+
+        if worker.dl_name:
+            name = worker.dl_name
+        elif os.path.exists(name):
+            i = 1
+            while os.path.exists(f'({i}) {name}'):
+                i += 1
+            name = f'({i}) {name}'
+            
+        if worker.stopped: return name
+        if worker.paused: return name
     except:
         download(worker)
 
-    if os.path.exists(name) and not worker.dl_name:
-        i = 1
-        while os.path.exists(f'({i}) {name}'):
-            i += 1
-        name = f'({i}) {name}'
-        
-    if not worker.data: return name
-    if worker.paused: return name
+
     with open(name, 'ab') as f:
         worker.signals.update_signal.emit(worker.data, 'Downloading', '')
         itrcount=1
@@ -87,7 +91,8 @@ def download(worker, payload={'dl_no_ssl': 'on', 'dlinline': 'on'}):
             f.write(chunk)
             bytes_read += len(chunk)
             total_per = 100 * (float(bytes_read) + downloaded_size)
-            total_per /= float(r.headers['Content-Length'])
-            if not worker.data: return name
+            total_per /= float(r.headers['Content-Length']) + downloaded_size
+            if worker.stopped: return name
             if worker.paused: return name
             worker.signals.update_signal.emit(worker.data, 'Downloading', f'{round(total_per, 1)}%')
+    worker.signals.update_signal.emit(worker.data, 'Complete', '')

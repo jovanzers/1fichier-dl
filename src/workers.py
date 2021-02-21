@@ -59,7 +59,7 @@ class Download_Worker(QRunnable):
         self.table_model = table_model
         self.data = data
         self.signals = WorkerSignals()
-        self.paused = self.stopped = False
+        self.paused = self.stopped = self.complete = False
         self.dl_name = dl_name
 
     @pyqtSlot()
@@ -72,13 +72,17 @@ class Download_Worker(QRunnable):
 
         if self.paused:
             self.signals.update_signal.emit(self.data, 'Paused', '')
+        else:
+            if not dl_name:
+                self.complete = True
 
     def stop(self, i):
         self.table_model.removeRow(i)
         self.stopped = True
     
     def pause(self):
-        self.paused = True
+        if not self.complete:
+            self.paused = True
 
     def resume(self):
         if self.paused == True:
@@ -86,7 +90,7 @@ class Download_Worker(QRunnable):
             self.signals.unpause_signal.emit(self.data, self.link, False, self.dl_name)
     
     def return_data(self):
-        if not self.stopped:
+        if not self.stopped and not self.complete:
             data = []
             data.append(self.link)
             if self.dl_name: 
