@@ -78,6 +78,7 @@ class Gui_Actions:
 
         worker.signals.download_signal.connect(self.download_receive_signal)
         worker.signals.alert_signal.connect(alert)
+        worker.setAutoDelete(True)
         
         self.thread.start(worker)
     
