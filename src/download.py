@@ -21,11 +21,12 @@ def get_link_info(url):
     except:
         return None
 
-def download(worker, payload={'dl_no_ssl': 'on', 'dlinline': 'on'}):
+def download(worker, payload={'dl_no_ssl': 'on', 'dlinline': 'on'}, downloaded_size = 0):
     if worker.dl_name:
-        downloaded_size = os.path.getsize(os.path.abspath(os.path.dirname(__file__)) + '/' + worker.dl_name)
-    else:
-        downloaded_size = 0
+        try:
+            downloaded_size = os.path.getsize(os.path.abspath(os.path.dirname(__file__)) + '/' + worker.dl_name)
+        except FileNotFoundError:
+            downloaded_size = 0
     url = worker.link
     i = 1
     while True:
@@ -33,7 +34,7 @@ def download(worker, payload={'dl_no_ssl': 'on', 'dlinline': 'on'}):
             return None if not worker.dl_name else worker.dl_name
 
         worker.signals.update_signal.emit(worker.data, f'Bypassing ({i})', '')
-        
+
         proxy = get_proxy()
         proxies = {'https': proxy}
         try:
@@ -43,7 +44,9 @@ def download(worker, payload={'dl_no_ssl': 'on', 'dlinline': 'on'}):
             i += 1
             pass
         else:
-            return None if not worker.dl_name else worker.dl_name
+            if worker.stopped or worker.paused:
+                return None if not worker.dl_name else worker.dl_name
+
             worker.signals.update_signal.emit(worker.data, 'Bypassed', '')
             # Proxy worked.
             break
@@ -64,7 +67,7 @@ def download(worker, payload={'dl_no_ssl': 'on', 'dlinline': 'on'}):
 
     r = requests.get(url, stream=True, headers=headers)
 
-    if r.headers['Content-Disposition']:
+    if 'Content-Disposition' in r.headers:
         name = r.headers['Content-Disposition'].split('"')[1]
 
         if worker.dl_name:
@@ -78,7 +81,6 @@ def download(worker, payload={'dl_no_ssl': 'on', 'dlinline': 'on'}):
         if worker.stopped or worker.paused: return name
     else:
         download(worker)
-
 
     with open(name, 'ab') as f:
         worker.signals.update_signal.emit(worker.data, 'Downloading', '')
@@ -94,3 +96,4 @@ def download(worker, payload={'dl_no_ssl': 'on', 'dlinline': 'on'}):
             if worker.stopped or worker.paused: return name
             worker.signals.update_signal.emit(worker.data, 'Downloading', f'{round(total_per, 1)}%')
     worker.signals.update_signal.emit(worker.data, 'Complete', '')
+    return
