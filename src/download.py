@@ -36,13 +36,12 @@ def download(worker, payload={'dl_no_ssl': 'on', 'dlinline': 'on'}, downloaded_s
         worker.signals.update_signal.emit(worker.data, f'Bypassing ({i})', '')
 
         proxy = get_proxy()
-        proxies = {'https': proxy}
+        proxies = {'https': f'https://{proxy}'}
         try:
             r = requests.post(url, payload, proxies=proxies)
         except:
             # Proxy failed.
             i += 1
-            pass
         else:
             if worker.stopped or worker.paused:
                 return None if not worker.dl_name else worker.dl_name
