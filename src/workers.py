@@ -5,7 +5,6 @@ import time
 import os
 
 class WorkerSignals(QObject):
-    finished = pyqtSignal()
     download_signal = pyqtSignal(list, str, bool, str)
     alert_signal = pyqtSignal(str)
     update_signal = pyqtSignal(list, str, str)
@@ -50,7 +49,6 @@ class Filter_Worker(QRunnable):
                     row.append(data)
                 row.extend([QStandardItem('Added'), QStandardItem(f'{self.percentage}%')])
                 self.signals.download_signal.emit(row, link, True, self.dl_name)
-        self.signals.finished.emit()
 
 class Download_Worker(QRunnable):
     def __init__(self, link, table_model, data, dl_name = ''):

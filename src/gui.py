@@ -25,7 +25,8 @@ def alert(text):
 
 class Gui_Actions:
     def __init__(self, gui):
-        self.thread = QThreadPool()
+        self.filter_thread = QThreadPool()
+        self.download_thread = QThreadPool()
         self.download_workers = []
         self.gui = gui
 
@@ -78,9 +79,8 @@ class Gui_Actions:
 
         worker.signals.download_signal.connect(self.download_receive_signal)
         worker.signals.alert_signal.connect(alert)
-        worker.setAutoDelete(True)
         
-        self.thread.start(worker)
+        self.filter_thread.start(worker)
     
     def download_receive_signal(self, row, link, append_row = True, dl_name = ''):
         if append_row:
@@ -90,7 +90,7 @@ class Gui_Actions:
         worker.signals.update_signal.connect(self.update_receive_signal)
         worker.signals.unpause_signal.connect(self.download_receive_signal)
 
-        self.thread.start(worker)
+        self.download_thread.start(worker)
         self.download_workers.append(worker)
 
     def update_receive_signal(self, data, status, progress):
@@ -110,7 +110,7 @@ class Gui_Actions:
             if active_downloads:
                 pickle.dump(active_downloads, f)
         
-        sys.exit()
+        os._exit(1)
 
 class Gui:
     def __init__(self):
