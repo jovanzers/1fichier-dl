@@ -6,6 +6,7 @@ from random import choice
 from PyQt5.QtGui import QStandardItem
 
 PROXY_TXT_API = 'https://www.proxyscan.io/api/proxy?type=https&format=txt'
+PLATFORM = os.name
 
 def get_proxy():
     proxy = requests.get(PROXY_TXT_API).text
@@ -24,7 +25,7 @@ def get_link_info(url):
 def download(worker, payload={'dl_no_ssl': 'on', 'dlinline': 'on'}, downloaded_size = 0):
     if worker.dl_name:
         try:
-            downloaded_size = os.path.getsize(os.path.abspath(os.path.dirname(__file__)) + '/' + worker.dl_name)
+            downloaded_size = os.path.getsize(worker.dl_directory + '/' + worker.dl_name)
         except FileNotFoundError:
             downloaded_size = 0
     url = worker.link
@@ -36,7 +37,8 @@ def download(worker, payload={'dl_no_ssl': 'on', 'dlinline': 'on'}, downloaded_s
         worker.signals.update_signal.emit(worker.data, f'Bypassing ({i})', '')
 
         proxy = get_proxy()
-        proxies = {'https': f'https://{proxy}'}
+        proxies = {'https': proxy} if PLATFORM == 'nt' else {'https': f'https://{proxy}'}
+
         try:
             r = requests.post(url, payload, proxies=proxies)
         except:
@@ -79,7 +81,7 @@ def download(worker, payload={'dl_no_ssl': 'on', 'dlinline': 'on'}, downloaded_s
 
             if worker.stopped or worker.paused: return name
 
-            with open(name, 'ab') as f:
+            with open(worker.dl_directory + '/' + name, 'ab') as f:
                 worker.signals.update_signal.emit(worker.data, 'Downloading', '')
                 itrcount=1
                 chunk_size = 1024

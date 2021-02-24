@@ -1,8 +1,7 @@
+import os
 from download import *
 from PyQt5.QtCore import QObject, QRunnable, pyqtSignal, pyqtSlot
 from PyQt5.QtGui import QStandardItem
-import time
-import os
 
 class WorkerSignals(QObject):
     download_signal = pyqtSignal(list, str, bool, str)
@@ -51,7 +50,7 @@ class Filter_Worker(QRunnable):
                 self.signals.download_signal.emit(row, link, True, self.dl_name)
 
 class Download_Worker(QRunnable):
-    def __init__(self, link, table_model, data, dl_name = ''):
+    def __init__(self, link, table_model, data, settings, dl_name = ''):
         super(Download_Worker, self).__init__()
         self.link = link
         self.table_model = table_model
@@ -59,6 +58,7 @@ class Download_Worker(QRunnable):
         self.signals = WorkerSignals()
         self.paused = self.stopped = self.complete = False
         self.dl_name = dl_name
+        self.dl_directory = settings[0] if settings is not None else None
 
     @pyqtSlot()
     def run(self):

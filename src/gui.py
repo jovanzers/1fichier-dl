@@ -9,7 +9,8 @@ from PyQt5.QtWidgets import (QApplication, QMainWindow, QGridLayout,
                              QPushButton, QWidget, QMessageBox,
                              QTableView, QHeaderView, QHBoxLayout,
                              QPlainTextEdit, QVBoxLayout, QAbstractItemView,
-                             QAbstractScrollArea)
+                             QAbstractScrollArea, QLabel, QLineEdit,
+                             QFileDialog)
 
 # Absolute path
 def abs(f):
@@ -31,7 +32,7 @@ class Gui_Actions:
         self.gui = gui
 
         # Load cached downloads
-        with open(abs('cache/cache'), 'rb') as f:
+        with open(abs('app/cache'), 'rb') as f:
             try:
                 cached_downloads = pickle.load(f)
                 for download in cached_downloads:
@@ -39,6 +40,14 @@ class Gui_Actions:
                     self.add_links_action(True, download[1])
             except EOFError:
                 print('No cached downloads.')
+        
+        # Load settings
+        with open(abs('app/settings'), 'rb') as f:
+            try:
+                self.settings = pickle.load(f)
+            except EOFError:
+                self.settings = None
+                print('No settings found.')
 
     def check_selection(self):
         selection = []
@@ -86,7 +95,7 @@ class Gui_Actions:
         if append_row:
             self.gui.table_model.appendRow(row)
 
-        worker = Download_Worker(link, self.gui.table_model, row, dl_name)
+        worker = Download_Worker(link, self.gui.table_model, row, self.settings, dl_name)
         worker.signals.update_signal.connect(self.update_receive_signal)
         worker.signals.unpause_signal.connect(self.download_receive_signal)
 
@@ -98,6 +107,19 @@ class Gui_Actions:
             if not PyQt5.sip.isdeleted(data[2]):
                 if status: data[2].setText(status)
                 if progress: data[3].setText(progress)
+    
+    def dl_directory_action(self):
+        file_dialog = QFileDialog()
+        file_dialog.setFileMode(QFileDialog.Directory)
+        file_dialog.exec_()
+        self.gui.dl_directory_input.setText(file_dialog.selectedFiles()[0])
+
+    def save_settings(self):
+        with open(abs('app/settings'), 'wb') as f:
+            settings = []
+            settings.append(self.gui.dl_directory_input.text())
+            pickle.dump(settings, f)
+        
 
     def exit_handler(self):
         active_downloads = []
@@ -106,7 +128,7 @@ class Gui_Actions:
             download = w.return_data()
             if download: active_downloads.append(download)
 
-        with open(abs('cache/cache'), 'wb') as f:
+        with open(abs('app/cache'), 'wb') as f:
             if active_downloads:
                 pickle.dump(active_downloads, f)
         
@@ -121,6 +143,7 @@ class Gui:
         app.aboutToQuit.connect(self.actions.exit_handler)
         self.main_win()
         self.add_links_win()
+        self.settings_win()
         sys.exit(app.exec_())
     
     def main_win(self):
@@ -136,6 +159,7 @@ class Gui:
 
         # Settings Button
         settings_btn = QPushButton(QIcon(abs('res/settings.svg')), ' Settings')
+        settings_btn.clicked.connect(lambda: self.settings.show())
 
         # Table
         self.table = QTableView()
@@ -198,7 +222,7 @@ class Gui:
         add_btn.clicked.connect(self.actions.add_links_action)
         layout.addWidget(add_btn)
 
-        self.add_links.setFixedSize(300, 200)
+        self.add_links.setMinimumSize(300, 200)
         widget.setLayout(layout)
 
     def settings_win(self):
@@ -207,8 +231,30 @@ class Gui:
         widget = QWidget(self.settings)
         self.settings.setCentralWidget(widget)
 
-        # layout stuff - unfinished
+        # Vertical Layout
+        vbox = QVBoxLayout()
+        dl_directory_label = QLabel('Change download directory:')
 
-        self.settings.resize(490, 380)
-        widget.setLayout(layout)
+        hbox = QHBoxLayout()
 
+        dl_directory_btn = QPushButton('Select..')
+        dl_directory_btn.clicked.connect(self.actions.dl_directory_action)
+
+        self.dl_directory_input = QLineEdit()
+        if self.actions.settings is not None:
+            self.dl_directory_input.setText(self.actions.settings[0])
+        self.dl_directory_input.setDisabled(True)
+
+        hbox.addWidget(dl_directory_btn)
+        hbox.addWidget(self.dl_directory_input)
+
+        save_settings = QPushButton('Save Settings')
+        save_settings.clicked.connect(self.actions.save_settings)
+
+        vbox.addWidget(dl_directory_label)
+        vbox.addLayout(hbox)
+        vbox.addWidget(save_settings)
+
+        self.add_links.setMinimumSize(300, 200)
+        widget.setLayout(vbox)
+        self.settings.setFixedSize(340, 85)
