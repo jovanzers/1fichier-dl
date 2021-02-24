@@ -1,6 +1,6 @@
 # 1fichier-dl
 <p align="center">
-  <b>1Fichier download manager.</b>
+  <b>1Fichier Download Manager.</b>
 </p>
 
 <p align="center">
