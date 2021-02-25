@@ -58,7 +58,7 @@ class Download_Worker(QRunnable):
         self.signals = WorkerSignals()
         self.paused = self.stopped = self.complete = False
         self.dl_name = dl_name
-        self.dl_directory = settings[0] if settings is not None else None
+        self.dl_directory = settings[0] if settings is not None else os.path.abspath(os.path.dirname(__file__))
 
     @pyqtSlot()
     def run(self):
