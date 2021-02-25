@@ -119,6 +119,7 @@ class Gui_Actions:
             settings = []
             settings.append(self.gui.dl_directory_input.text())
             pickle.dump(settings, f)
+            self.settings = settings
         
 
     def exit_handler(self):
