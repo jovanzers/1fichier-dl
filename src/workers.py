@@ -40,14 +40,27 @@ class Filter_Worker(QRunnable):
                 self.signals.alert_signal.emit('The link(s) you inserted were not valid.')
 
         for link in self.valid_links:
-            info = get_link_info(link)
-            if info is not None:
-                row = []
-                for val in info:
-                    data = QStandardItem(val)
-                    row.append(data)
-                row.extend([QStandardItem('Added'), QStandardItem(f'{self.percentage}%')])
-                self.signals.download_signal.emit(row, link, True, self.dl_name)
+            if '/dir/' in link:
+                folder = requests.get(f'{link}?json=1')
+                folder = folder.json()
+                for f in folder:
+                    link = f['link']
+                    info = [f['filename'], convert_size(int(f['size']))]
+                    row = []
+                    for val in info:
+                        data = QStandardItem(val)
+                        row.append(data)
+                    row.extend([QStandardItem('Added'), QStandardItem(f'{self.percentage}%')])
+                    self.signals.download_signal.emit(row, link, True, self.dl_name)
+            else:
+                info = get_link_info(link)
+                if info is not None:
+                    row = []
+                    for val in info:
+                        data = QStandardItem(val)
+                        row.append(data)
+                    row.extend([QStandardItem('Added'), QStandardItem(f'{self.percentage}%')])
+                    self.signals.download_signal.emit(row, link, True, self.dl_name)
 
 class Download_Worker(QRunnable):
     def __init__(self, link, table_model, data, settings, dl_name = ''):

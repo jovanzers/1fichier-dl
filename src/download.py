@@ -12,6 +12,16 @@ def get_proxy():
     proxy = requests.get(PROXY_TXT_API).text
     return proxy.rstrip()
 
+def convert_size(size_bytes):
+    # https://stackoverflow.com/a/14822210
+    if size_bytes == 0:
+        return '0 B'
+    size_name = ('B', 'KB', 'MB', 'GB', 'TB')
+    i = int(math.floor(math.log(size_bytes, 1024)))
+    p = math.pow(1024, i)
+    s = round(size_bytes / p, 2)
+    return '%s %s' % (s, size_name[i])
+
 def get_link_info(url):
     try:
         r = requests.get(url)
@@ -75,9 +85,11 @@ def download(worker, payload={'dl_no_ssl': 'on', 'dlinline': 'on'}, downloaded_s
                 name = worker.dl_name
             elif os.path.exists(name):
                 i = 1
-                while os.path.exists(f'({i}) {name}'):
+                while os.path.exists(f'{worker.dl_directory}/({i}) {name}'):
                     i += 1
                 name = f'({i}) {name}'
+            
+            print(f'{worker.dl_directory}/{name}')
 
             if worker.stopped or worker.paused: return name
 
