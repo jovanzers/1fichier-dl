@@ -120,12 +120,12 @@ class Gui_Actions:
             settings.append(self.gui.dl_directory_input.text())
             pickle.dump(settings, f)
             self.settings = settings
+        self.gui.settings.hide()
         
 
     def exit_handler(self):
         active_downloads = []
         for w in self.download_workers:
-            w.pause()
             download = w.return_data()
             if download: active_downloads.append(download)
 

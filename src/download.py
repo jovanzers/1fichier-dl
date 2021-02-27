@@ -83,13 +83,13 @@ def download(worker, payload={'dl_no_ssl': 'on', 'dlinline': 'on'}, downloaded_s
 
             if worker.dl_name:
                 name = worker.dl_name
-            elif os.path.exists(name):
+            elif os.path.exists(f'{worker.dl_directory}/{name}'):
                 i = 1
                 while os.path.exists(f'{worker.dl_directory}/({i}) {name}'):
                     i += 1
                 name = f'({i}) {name}'
-            
-            print(f'{worker.dl_directory}/{name}')
+
+            worker.dl_name = name
 
             if worker.stopped or worker.paused: return name
 

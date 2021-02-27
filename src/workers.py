@@ -79,7 +79,7 @@ class Download_Worker(QRunnable):
         self.dl_name = dl_name
 
         if dl_name and self.stopped:
-            os.remove(dl_name)
+            os.remove(self.dl_directory + '/' + dl_name)
 
         if self.paused:
             self.signals.update_signal.emit(self.data, 'Paused', '')
