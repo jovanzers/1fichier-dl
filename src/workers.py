@@ -1,12 +1,12 @@
 import os
 from download import *
-from PyQt5.QtCore import QObject, QRunnable, pyqtSignal, pyqtSlot
+from PyQt5.QtCore import Qt, QObject, QRunnable, pyqtSignal, pyqtSlot
 from PyQt5.QtGui import QStandardItem
 
 class WorkerSignals(QObject):
     download_signal = pyqtSignal(list, str, bool, str)
     alert_signal = pyqtSignal(str)
-    update_signal = pyqtSignal(list, str, str)
+    update_signal = pyqtSignal(list, str, str, str, str)
     unpause_signal = pyqtSignal(list, str, bool, str)
 
 class Filter_Worker(QRunnable):
@@ -54,12 +54,22 @@ class Filter_Worker(QRunnable):
                     self.signals.download_signal.emit(row, link, True, self.dl_name)
             else:
                 info = get_link_info(link)
+                is_private = True if info[0] == 'Private File' else False
                 if info is not None:
+                    info[0] = self.dl_name if self.dl_name else info[0]
+                    info.extend(['Added', f'{self.percentage}%'])
                     row = []
                     for val in info:
                         data = QStandardItem(val)
+                        data.setFlags(data.flags() & ~Qt.ItemIsEditable)
                         row.append(data)
-                    row.extend([QStandardItem('Added'), QStandardItem(f'{self.percentage}%')])
+                    if is_private:
+                        password = QStandardItem()
+                        row.append(password)
+                    else:
+                        no_password = QStandardItem('No password')
+                        no_password.setFlags(data.flags() & ~Qt.ItemIsEditable)
+                        row.append(no_password)
                     self.signals.download_signal.emit(row, link, True, self.dl_name)
 
 class Download_Worker(QRunnable):
@@ -82,7 +92,7 @@ class Download_Worker(QRunnable):
             os.remove(self.dl_directory + '/' + dl_name)
 
         if self.paused:
-            self.signals.update_signal.emit(self.data, 'Paused', '')
+            self.signals.update_signal.emit(self.data, 'Paused', '', '', '')
         else:
             if not dl_name:
                 self.complete = True

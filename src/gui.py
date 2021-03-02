@@ -102,11 +102,13 @@ class Gui_Actions:
         self.download_thread.start(worker)
         self.download_workers.append(worker)
 
-    def update_receive_signal(self, data, status, progress):
+    def update_receive_signal(self, data, status, progress, name = None, size = None):
         if data:
             if not PyQt5.sip.isdeleted(data[2]):
                 if status: data[2].setText(status)
                 if progress: data[3].setText(progress)
+                if name: data[0].setText(name)
+                if size: data[1].setText(size)
     
     def dl_directory_action(self):
         file_dialog = QFileDialog()
@@ -164,12 +166,11 @@ class Gui:
 
         # Table
         self.table = QTableView()
-        headers = ['Name', 'Size', 'Status', 'Progress']
+        headers = ['Name', 'Size', 'Status', 'Progress', 'Password']
         self.table.setSizeAdjustPolicy(QAbstractScrollArea.AdjustToContentsOnFirstShow)
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.table.verticalHeader().hide()
-        self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
 
         self.table_model = QStandardItemModel()
         self.table_model.setHorizontalHeaderLabels(headers)
@@ -207,7 +208,7 @@ class Gui:
         self.main.show()
     
     def add_links_win(self):
-        self.add_links = QMainWindow()
+        self.add_links = QMainWindow(self.main)
         self.add_links.setWindowTitle('Add Link(s)')
         widget = QWidget(self.add_links)
         self.add_links.setCentralWidget(widget)
@@ -227,7 +228,7 @@ class Gui:
         widget.setLayout(layout)
 
     def settings_win(self):
-        self.settings = QMainWindow()
+        self.settings = QMainWindow(self.main)
         self.settings.setWindowTitle('Settings')
         widget = QWidget(self.settings)
         self.settings.setCentralWidget(widget)
