@@ -6,15 +6,16 @@ from PyQt5.QtGui import QStandardItem
 class WorkerSignals(QObject):
     download_signal = pyqtSignal(list, str, bool, str)
     alert_signal = pyqtSignal(str)
-    update_signal = pyqtSignal(list, str, str, str, str)
+    update_signal = pyqtSignal(list, list)
     unpause_signal = pyqtSignal(list, str, bool, str)
 
 class Filter_Worker(QRunnable):
-    def __init__(self, links, dl_name = ''):
+    def __init__(self, links, dl_name = '', password = ''):
         super(Filter_Worker, self).__init__()
         self.links = links
         self.signals = WorkerSignals()
         self.dl_name = dl_name
+        self.password = password
         self.percentage = 0
 
     @pyqtSlot()
@@ -46,30 +47,44 @@ class Filter_Worker(QRunnable):
                 for f in folder:
                     link = f['link']
                     info = [f['filename'], convert_size(int(f['size']))]
+                    info.extend(['Added', '0 B/s', f'{self.percentage}%'])
                     row = []
-                    for val in info:
-                        data = QStandardItem(val)
-                        row.append(data)
-                    row.extend([QStandardItem('Added'), QStandardItem(f'{self.percentage}%')])
-                    self.signals.download_signal.emit(row, link, True, self.dl_name)
-            else:
-                info = get_link_info(link)
-                is_private = True if info[0] == 'Private File' else False
-                if info is not None:
-                    info[0] = self.dl_name if self.dl_name else info[0]
-                    info.extend(['Added', f'{self.percentage}%'])
-                    row = []
+
                     for val in info:
                         data = QStandardItem(val)
                         data.setFlags(data.flags() & ~Qt.ItemIsEditable)
                         row.append(data)
-                    if is_private:
+
+                    if f['password'] == 1:
                         password = QStandardItem()
                         row.append(password)
                     else:
                         no_password = QStandardItem('No password')
                         no_password.setFlags(data.flags() & ~Qt.ItemIsEditable)
                         row.append(no_password)
+
+                    self.signals.download_signal.emit(row, link, True, self.dl_name)
+            else:
+                info = get_link_info(link)
+                is_private = True if info[0] == 'Private File' else False
+                if info is not None:
+                    info[0] = self.dl_name if self.dl_name else info[0]
+                    info.extend(['Added', '0 B/s', f'{self.percentage}%'])
+                    row = []
+
+                    for val in info:
+                        data = QStandardItem(val)
+                        data.setFlags(data.flags() & ~Qt.ItemIsEditable)
+                        row.append(data)
+
+                    if is_private:
+                        password = QStandardItem(self.password)
+                        row.append(password)
+                    else:
+                        no_password = QStandardItem('No password')
+                        no_password.setFlags(data.flags() & ~Qt.ItemIsEditable)
+                        row.append(no_password)
+
                     self.signals.download_signal.emit(row, link, True, self.dl_name)
 
 class Download_Worker(QRunnable):
@@ -89,10 +104,13 @@ class Download_Worker(QRunnable):
         self.dl_name = dl_name
 
         if dl_name and self.stopped:
-            os.remove(self.dl_directory + '/' + dl_name)
+            try:
+                os.remove(self.dl_directory + '/' + dl_name)
+            except:
+                print(f'Failed to remove: {self.dl_directory}/{dl_name}')
 
         if self.paused:
-            self.signals.update_signal.emit(self.data, 'Paused', '', '', '')
+            self.signals.update_signal.emit(self.data, [None, None, 'Paused', '0 B/s'])
         else:
             if not dl_name:
                 self.complete = True
@@ -114,8 +132,6 @@ class Download_Worker(QRunnable):
         if not self.stopped and not self.complete:
             data = []
             data.append(self.link)
-            if self.dl_name: 
-                data.append(self.dl_name)
-            else:
-                data.append(None)
+            data.append(self.dl_name) if self.dl_name else data.append(None)
+            data.append(self.data[5].text()) if self.data[5].text() != 'No password' else data.append(None)
             return data

@@ -3,6 +3,7 @@ import math
 import os
 import time
 import lxml.html
+import PyQt5.sip
 from random import choice
 from PyQt5.QtGui import QStandardItem
 
@@ -21,6 +22,18 @@ def convert_size(size_bytes):
     i = int(math.floor(math.log(size_bytes, 1024)))
     p = math.pow(1024, i)
     s = round(size_bytes / p, 2)
+    return '%s %s' % (s, size_name[i])
+
+def download_speed(bytes_read, start_time):
+    if bytes_read == 0:
+        return '0 B/s'
+    elif time.time()-start_time == 0:
+        return '- B/s'
+    size_name = ('B/s', 'KB/s', 'MB/s', 'GB/s', 'TB/s')
+    bps = bytes_read/(time.time()-start_time)
+    i = int(math.floor(math.log(bps, 1024)))
+    p = math.pow(1024, i)
+    s = round(bps / p, 2)
     return '%s %s' % (s, size_name[i])
 
 def get_link_info(url):
@@ -46,8 +59,18 @@ def download(worker, payload={'dl_no_ssl': 'on', 'dlinline': 'on'}, downloaded_s
     while True:
         if worker.stopped or worker.paused:
             return None if not worker.dl_name else worker.dl_name
+    
+        while True:
+            if not PyQt5.sip.isdeleted(worker.data[5]):
+                if worker.data[5].text() == '':
+                    worker.signals.update_signal.emit(worker.data, [None, None, 'Waiting for password'])
+                    time.sleep(2)
+                else:
+                    break
+                if worker.stopped or worker.paused:
+                    return None if not worker.dl_name else worker.dl_name
 
-        worker.signals.update_signal.emit(worker.data, f'Bypassing ({i})', '', '', '')
+        worker.signals.update_signal.emit(worker.data, [None, None, f'Bypassing ({i})'])
 
         proxy = get_proxy()
         proxies = {'https': proxy} if PLATFORM == 'nt' else {'https': f'https://{proxy}'}
@@ -56,7 +79,7 @@ def download(worker, payload={'dl_no_ssl': 'on', 'dlinline': 'on'}, downloaded_s
             r = requests.post(url, payload, proxies=proxies)
             html = lxml.html.fromstring(r.content)
             if html.xpath('//*[@id="pass"]'):
-                payload['pass'] = worker.data[4].text()
+                payload['pass'] = worker.data[5].text()
                 r = requests.post(url, payload, proxies=proxies)
         except:
             # Proxy failed.
@@ -65,14 +88,22 @@ def download(worker, payload={'dl_no_ssl': 'on', 'dlinline': 'on'}, downloaded_s
             if worker.stopped or worker.paused:
                 return None if not worker.dl_name else worker.dl_name
 
-            worker.signals.update_signal.emit(worker.data, 'Bypassed', '', '', '')
+            worker.signals.update_signal.emit(worker.data, [None, None, 'Bypassed'])
             # Proxy worked.
             break
+
     if not html.xpath('/html/body/div[4]/div[2]/a'):
         if 'Bad password' in r.text:
-            worker.signals.update_signal.emit(worker.data, 'Wrong password', '', '', '')
-            while worker.data[4].text() == payload['pass']:
-                time.sleep(2)
+            worker.signals.update_signal.emit(worker.data, [None, None, 'Wrong password'])
+            while True:
+                if not PyQt5.sip.isdeleted(worker.data[5]):
+                    if worker.data[5].text() == payload['pass']:
+                        time.sleep(2)
+                    else:
+                        break
+                else:
+                    worker.stopped = True
+                    return None if not worker.dl_name else worker.dl_name
         download(worker)
     else:
         old_url = url
@@ -97,26 +128,30 @@ def download(worker, payload={'dl_no_ssl': 'on', 'dlinline': 'on'}, downloaded_s
                     i += 1
                 name = f'({i}) {name}'
 
+            name = f'{name}.unfinished' if name[-11:] != '.unfinished' else name
             worker.dl_name = name
 
             if worker.stopped or worker.paused: return name
 
-            worker.signals.update_signal.emit(worker.data, None, None, name, convert_size(float(r.headers['Content-Length'])))
+            worker.signals.update_signal.emit(worker.data, [name[:-11], convert_size(float(r.headers['Content-Length'])+downloaded_size)])
 
             with open(worker.dl_directory + '/' + name, 'ab') as f:
-                worker.signals.update_signal.emit(worker.data, 'Downloading', '', '', '')
+                worker.signals.update_signal.emit(worker.data, [None, None, 'Downloading'])
                 itrcount=1
                 chunk_size = 1024
                 bytes_read = 0
+                start = time.time()
                 for chunk in r.iter_content(chunk_size):
                     itrcount=itrcount+1
                     f.write(chunk)
                     bytes_read += len(chunk)
                     total_per = 100 * (float(bytes_read) + downloaded_size)
                     total_per /= float(r.headers['Content-Length']) + downloaded_size
+                    dl_speed = download_speed(bytes_read, start)
                     if worker.stopped or worker.paused: return name
-                    worker.signals.update_signal.emit(worker.data, 'Downloading', f'{round(total_per, 1)}%', '', '')
-            worker.signals.update_signal.emit(worker.data, 'Complete', '', '', '')
+                    worker.signals.update_signal.emit(worker.data, [None, None, 'Downloading', dl_speed, f'{round(total_per, 1)}%'])
+            os.rename(worker.dl_directory + '/' + name, worker.dl_directory + '/' + name[:-11])
+            worker.signals.update_signal.emit(worker.data, [None, None, 'Complete'])
         else:
             download(worker)
     return

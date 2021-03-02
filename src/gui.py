@@ -37,7 +37,7 @@ class Gui_Actions:
                 cached_downloads = pickle.load(f)
                 for download in cached_downloads:
                     self.gui.links = download[0]
-                    self.add_links_action(True, download[1])
+                    self.add_links_action(True, download[1], download[2])
             except EOFError:
                 print('No cached downloads.')
         
@@ -83,8 +83,8 @@ class Gui_Actions:
                 if i < len(self.download_workers):
                     self.download_workers[i].pause()
 
-    def add_links_action(self, state, dl_name = ''):
-        worker = Filter_Worker(self.gui.links, dl_name)
+    def add_links_action(self, state, dl_name = '', password = ''):
+        worker = Filter_Worker(self.gui.links, dl_name, password)
 
         worker.signals.download_signal.connect(self.download_receive_signal)
         worker.signals.alert_signal.connect(alert)
@@ -102,13 +102,11 @@ class Gui_Actions:
         self.download_thread.start(worker)
         self.download_workers.append(worker)
 
-    def update_receive_signal(self, data, status, progress, name = None, size = None):
+    def update_receive_signal(self, data, items):
         if data:
             if not PyQt5.sip.isdeleted(data[2]):
-                if status: data[2].setText(status)
-                if progress: data[3].setText(progress)
-                if name: data[0].setText(name)
-                if size: data[1].setText(size)
+                for i in range(len(items)):
+                    if items[i]: data[i].setText(items[i])
     
     def dl_directory_action(self):
         file_dialog = QFileDialog()
@@ -166,9 +164,9 @@ class Gui:
 
         # Table
         self.table = QTableView()
-        headers = ['Name', 'Size', 'Status', 'Progress', 'Password']
+        headers = ['Name', 'Size', 'Status', 'Down Speed', 'Progress', 'Password']
         self.table.setSizeAdjustPolicy(QAbstractScrollArea.AdjustToContentsOnFirstShow)
-        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.table.horizontalHeader().setStretchLastSection(True)
         self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.table.verticalHeader().hide()
 
@@ -204,7 +202,7 @@ class Gui:
                                 
         grid.addLayout(hbox, 2, 0, 1, 2)
         widget.setLayout(grid)
-        self.main.resize(490, 380)
+        self.main.resize(670, 415)
         self.main.show()
     
     def add_links_win(self):
