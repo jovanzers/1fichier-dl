@@ -8,7 +8,7 @@
 </p>
 
 ## Features
-⭐ Download multiple files simultaneously
+⭐ Manage your downloads
 
 ⭐ Bypass time limits
 
