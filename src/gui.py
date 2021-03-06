@@ -2,7 +2,7 @@ import sys
 import pickle
 import os
 import PyQt5.sip
-from workers import Filter_Worker, Download_Worker
+from workers import FilterWorker, DownloadWorker
 from PyQt5.QtCore import Qt, QThreadPool
 from PyQt5.QtGui import QIcon, QStandardItemModel, QStandardItem
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QGridLayout,
@@ -24,7 +24,7 @@ def alert(text):
     msg.setText(text)
     msg.exec_()
 
-class Gui_Actions:
+class GuiBehavior:
     def __init__(self, gui):
         self.filter_thread = QThreadPool()
         self.download_thread = QThreadPool()
@@ -34,11 +34,12 @@ class Gui_Actions:
         # Load cached downloads
         with open(abs('app/cache'), 'rb') as f:
             try:
-                cached_downloads = pickle.load(f)
-                for download in cached_downloads:
+                self.cached_downloads = pickle.load(f)
+                for download in self.cached_downloads:
                     self.gui.links = download[0]
-                    self.add_links_action(True, download[1], download[2])
+                    self.add_links_action(True, download[1], download[2], download)
             except EOFError:
+                self.cached_downloads = []
                 print('No cached downloads.')
         
         # Load settings
@@ -83,8 +84,8 @@ class Gui_Actions:
                 if i < len(self.download_workers):
                     self.download_workers[i].pause()
 
-    def add_links_action(self, state, dl_name = '', password = ''):
-        worker = Filter_Worker(self.gui.links, dl_name, password)
+    def add_links_action(self, state, dl_name = '', password = '', cached_download = ''):
+        worker = FilterWorker(self, dl_name, password, cached_download)
 
         worker.signals.download_signal.connect(self.download_receive_signal)
         worker.signals.alert_signal.connect(alert)
@@ -95,7 +96,7 @@ class Gui_Actions:
         if append_row:
             self.gui.table_model.appendRow(row)
 
-        worker = Download_Worker(link, self.gui.table_model, row, self.settings, dl_name)
+        worker = DownloadWorker(link, self.gui.table_model, row, self.settings, dl_name)
         worker.signals.update_signal.connect(self.update_receive_signal)
         worker.signals.unpause_signal.connect(self.download_receive_signal)
 
@@ -128,6 +129,7 @@ class Gui_Actions:
         for w in self.download_workers:
             download = w.return_data()
             if download: active_downloads.append(download)
+        active_downloads.extend(self.cached_downloads)
 
         with open(abs('app/cache'), 'wb') as f:
             if active_downloads:
@@ -137,7 +139,7 @@ class Gui_Actions:
 
 class Gui:
     def __init__(self):
-        self.actions = Gui_Actions(self)
+        self.actions = GuiBehavior(self)
         app = QApplication(sys.argv)
         app.setWindowIcon(QIcon(abs('ico.ico')))
         app.setStyle('Fusion')

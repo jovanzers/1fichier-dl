@@ -9,10 +9,12 @@ class WorkerSignals(QObject):
     update_signal = pyqtSignal(list, list)
     unpause_signal = pyqtSignal(list, str, bool, str)
 
-class Filter_Worker(QRunnable):
-    def __init__(self, links, dl_name = '', password = ''):
-        super(Filter_Worker, self).__init__()
-        self.links = links
+class FilterWorker(QRunnable):
+    def __init__(self, actions, dl_name = '', password = '', cached_download = ''):
+        super(FilterWorker, self).__init__()
+        self.links = actions.gui.links
+        self.cached_downloads = actions.cached_downloads
+        self.cached_download = cached_download
         self.signals = WorkerSignals()
         self.dl_name = dl_name
         self.password = password
@@ -64,10 +66,12 @@ class Filter_Worker(QRunnable):
                         row.append(no_password)
 
                     self.signals.download_signal.emit(row, link, True, self.dl_name)
+                    if self.cached_download:
+                        self.cached_downloads.remove(self.cached_download)           
             else:
                 info = get_link_info(link)
-                is_private = True if info[0] == 'Private File' else False
                 if info is not None:
+                    is_private = True if info[0] == 'Private File' else False
                     info[0] = self.dl_name if self.dl_name else info[0]
                     info.extend(['Added', '0 B/s', f'{self.percentage}%'])
                     row = []
@@ -86,10 +90,12 @@ class Filter_Worker(QRunnable):
                         row.append(no_password)
 
                     self.signals.download_signal.emit(row, link, True, self.dl_name)
+                    if self.cached_download:
+                        self.cached_downloads.remove(self.cached_download)
 
-class Download_Worker(QRunnable):
+class DownloadWorker(QRunnable):
     def __init__(self, link, table_model, data, settings, dl_name = ''):
-        super(Download_Worker, self).__init__()
+        super(DownloadWorker, self).__init__()
         self.link = link
         self.table_model = table_model
         self.data = data
