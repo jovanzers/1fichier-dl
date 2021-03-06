@@ -59,7 +59,7 @@ class GuiBehavior:
                 self.cached_downloads = pickle.load(f)
                 for download in self.cached_downloads:
                     self.gui.links = download[0]
-                    self.add_links(True, download[1], download[2], download)
+                    self.add_links(True, download)
         except EOFError:
             self.cached_downloads = []
             print('No cached downloads.')
@@ -100,22 +100,22 @@ class GuiBehavior:
                 if i < len(self.download_workers):
                     self.download_workers[i].pause()
 
-    def add_links(self, state, dl_name = '', password = '', cached_download = ''):
-        worker = FilterWorker(self, dl_name, password, cached_download)
+    def add_links(self, state, cached_download = ''):
+        worker = FilterWorker(self, cached_download)
 
         worker.signals.download_signal.connect(self.download_receive_signal)
         worker.signals.alert_signal.connect(alert)
         
         self.filter_thread.start(worker)
     
-    def download_receive_signal(self, row, link, append_row = True, dl_name = ''):
+    def download_receive_signal(self, row, link, append_row = True, dl_name = '', progress = 0):
         if append_row:
             self.gui.table_model.appendRow(row)
             index = self.gui.table_model.index(self.gui.table_model.rowCount()-1, 4)
-            progress = QProgressBar()
-            progress.setValue(0)
-            self.gui.table.setIndexWidget(index, progress)
-            row[4] = progress
+            progress_bar = QProgressBar()
+            progress_bar.setValue(progress)
+            self.gui.table.setIndexWidget(index, progress_bar)
+            row[4] = progress_bar
 
         worker = DownloadWorker(link, self.gui.table_model, row, self.settings, dl_name)
         worker.signals.update_signal.connect(self.update_receive_signal)

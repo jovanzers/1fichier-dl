@@ -4,20 +4,21 @@ from PyQt5.QtCore import Qt, QObject, QRunnable, pyqtSignal, pyqtSlot
 from PyQt5.QtGui import QStandardItem
 
 class WorkerSignals(QObject):
-    download_signal = pyqtSignal(list, str, bool, str)
+    download_signal = pyqtSignal(list, str, bool, str, int)
     alert_signal = pyqtSignal(str)
     update_signal = pyqtSignal(list, list)
     unpause_signal = pyqtSignal(list, str, bool, str)
 
 class FilterWorker(QRunnable):
-    def __init__(self, actions, dl_name = '', password = '', cached_download = ''):
+    def __init__(self, actions, cached_download = ''):
         super(FilterWorker, self).__init__()
         self.links = actions.gui.links
         self.cached_downloads = actions.cached_downloads
         self.cached_download = cached_download
         self.signals = WorkerSignals()
-        self.dl_name = dl_name
-        self.password = password
+        self.dl_name = cached_download[1] if self.cached_download else None
+        self.password = cached_download[2] if self.cached_download else None
+        self.progress = cached_download[3] if self.cached_download else None
 
     @pyqtSlot()
     def run(self):
@@ -63,7 +64,7 @@ class FilterWorker(QRunnable):
                         no_password.setFlags(data.flags() & ~Qt.ItemIsEditable)
                         row.append(no_password)
 
-                    self.signals.download_signal.emit(row, link, True, self.dl_name)
+                    self.signals.download_signal.emit(row, link, True, self.dl_name, self.progress)
                     if self.cached_download:
                         self.cached_downloads.remove(self.cached_download)           
             else:
@@ -87,7 +88,7 @@ class FilterWorker(QRunnable):
                         no_password.setFlags(data.flags() & ~Qt.ItemIsEditable)
                         row.append(no_password)
 
-                    self.signals.download_signal.emit(row, link, True, self.dl_name)
+                    self.signals.download_signal.emit(row, link, True, self.dl_name, self.progress)
                     if self.cached_download:
                         self.cached_downloads.remove(self.cached_download)
 
@@ -100,9 +101,7 @@ class DownloadWorker(QRunnable):
         self.signals = WorkerSignals()
         self.paused = self.stopped = self.complete = False
         self.dl_name = dl_name
-        if settings[0]: self.dl_directory = settings[0]
-        if not self.dl_directory or not os.path.exists(self.dl_directory):
-            self.dl_directory = os.path.abspath(os.path.dirname(__file__))
+        self.dl_directory = settings[0] if settings else os.path.abspath(os.path.dirname(__file__))
 
     @pyqtSlot()
     def run(self):
@@ -140,4 +139,5 @@ class DownloadWorker(QRunnable):
             data.append(self.link)
             data.append(self.dl_name) if self.dl_name else data.append(None)
             data.append(self.data[5].text()) if self.data[5].text() != 'No password' else data.append(None)
+            data.append(self.data[4].value())
             return data
