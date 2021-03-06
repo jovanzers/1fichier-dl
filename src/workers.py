@@ -18,7 +18,6 @@ class FilterWorker(QRunnable):
         self.signals = WorkerSignals()
         self.dl_name = dl_name
         self.password = password
-        self.percentage = 0
 
     @pyqtSlot()
     def run(self):
@@ -26,7 +25,6 @@ class FilterWorker(QRunnable):
 
         if isinstance(self.links, str):
             self.valid_links = [self.links]
-            self.percentage = '-'
         else:
             links = self.links.toPlainText().splitlines()
 
@@ -49,7 +47,7 @@ class FilterWorker(QRunnable):
                 for f in folder:
                     link = f['link']
                     info = [f['filename'], convert_size(int(f['size']))]
-                    info.extend(['Added', '0 B/s', f'{self.percentage}%'])
+                    info.extend(['Added', '0 B/s', ''])
                     row = []
 
                     for val in info:
@@ -73,7 +71,7 @@ class FilterWorker(QRunnable):
                 if info is not None:
                     is_private = True if info[0] == 'Private File' else False
                     info[0] = self.dl_name if self.dl_name else info[0]
-                    info.extend(['Added', '0 B/s', f'{self.percentage}%'])
+                    info.extend(['Added', '0 B/s', ''])
                     row = []
 
                     for val in info:
@@ -102,7 +100,9 @@ class DownloadWorker(QRunnable):
         self.signals = WorkerSignals()
         self.paused = self.stopped = self.complete = False
         self.dl_name = dl_name
-        self.dl_directory = settings[0] if settings is not None else os.path.abspath(os.path.dirname(__file__))
+        if settings[0]: self.dl_directory = settings[0]
+        if not self.dl_directory or not os.path.exists(self.dl_directory):
+            self.dl_directory = os.path.abspath(os.path.dirname(__file__))
 
     @pyqtSlot()
     def run(self):

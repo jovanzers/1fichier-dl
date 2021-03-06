@@ -10,7 +10,7 @@ from PyQt5.QtWidgets import (QApplication, QMainWindow, QGridLayout,
                              QTableView, QHeaderView, QHBoxLayout,
                              QPlainTextEdit, QVBoxLayout, QAbstractItemView,
                              QAbstractScrollArea, QLabel, QLineEdit,
-                             QFileDialog)
+                             QFileDialog, QProgressBar)
 
 # Absolute path
 def abs(f):
@@ -24,67 +24,83 @@ def alert(text):
     msg.setText(text)
     msg.exec_()
 
+# Return selected rows
+def check_selection(table):
+    selection = []
+    for index in table.selectionModel().selectedRows():
+        selection.append(index.row())
+    if not selection:
+        alert('No rows were selected.')
+    else:
+        return selection
+'''
+Create empty file
+Used to create app/settings and app/cache.
+'''
+def create_file(f):
+    f = abs(f)
+    print(f'Attempting to create file: {f}...')
+    os.makedirs(os.path.dirname(f), exist_ok=True)
+    f = open(f, 'x')
+    f.close()
+
 class GuiBehavior:
     def __init__(self, gui):
         self.filter_thread = QThreadPool()
         self.download_thread = QThreadPool()
         self.download_workers = []
         self.gui = gui
+        self.handle_init()
 
+    def handle_init(self):
         # Load cached downloads
-        with open(abs('app/cache'), 'rb') as f:
-            try:
+        try:
+            with open(abs('app/cache'), 'rb') as f:
                 self.cached_downloads = pickle.load(f)
                 for download in self.cached_downloads:
                     self.gui.links = download[0]
-                    self.add_links_action(True, download[1], download[2], download)
-            except EOFError:
-                self.cached_downloads = []
-                print('No cached downloads.')
+                    self.add_links(True, download[1], download[2], download)
+        except EOFError:
+            self.cached_downloads = []
+            print('No cached downloads.')
+        except FileNotFoundError:
+            self.cached_downloads = []
+            create_file('app/cache')
         
         # Load settings
-        with open(abs('app/settings'), 'rb') as f:
-            try:
+        try:
+            with open(abs('app/settings'), 'rb') as f:
                 self.settings = pickle.load(f)
-            except EOFError:
-                self.settings = None
-                print('No settings found.')
-
-    def check_selection(self):
-        selection = []
-        for index in self.gui.table.selectionModel().selectedRows():
-            selection.append(index.row())
-        return selection
-    
+        except EOFError:
+            self.settings = None
+            print('No settings found.')
+        except FileNotFoundError:
+            self.settings = None
+            create_file('app/settings')
+                
     def resume_download(self):
-        selected_rows = self.check_selection()
-        if not selected_rows:
-            alert('No rows were selected.')
-        else:
+        selected_rows = check_selection(self.gui.table)
+        if selected_rows:
             for i in selected_rows:
                 if i < len(self.download_workers):
                     self.download_workers[i].resume()
 
     def stop_download(self):
-        selected_rows = self.check_selection()
-        if not selected_rows:
-            alert('No rows were selected.')
-        else:
+        selected_rows = check_selection(self.gui.table)
+        if selected_rows:
             for i in selected_rows:
                 if i < len(self.download_workers):
                     self.download_workers[i].stop(i)
                     self.download_workers.remove(self.download_workers[i])
 
     def pause_download(self):
-        selected_rows = self.check_selection()
-        if not selected_rows:
-            alert('No rows were selected.')
-        else:
+        selected_rows = check_selection(self.gui.table)
+        if selected_rows:
             for i in selected_rows:
                 if i < len(self.download_workers):
                     self.download_workers[i].pause()
 
-    def add_links_action(self, state, dl_name = '', password = '', cached_download = ''):
+    def add_links(self, state, dl_name = '', password = '', cached_download = ''):
         worker = FilterWorker(self, dl_name, password, cached_download)
 
         worker.signals.download_signal.connect(self.download_receive_signal)
@@ -95,6 +111,11 @@ class GuiBehavior:
     def download_receive_signal(self, row, link, append_row = True, dl_name = ''):
         if append_row:
             self.gui.table_model.appendRow(row)
+            index = self.gui.table_model.index(self.gui.table_model.rowCount()-1, 4)
+            progress = QProgressBar()
+            progress.setValue(0)
+            self.gui.table.setIndexWidget(index, progress)
+            row[4] = progress
 
         worker = DownloadWorker(link, self.gui.table_model, row, self.settings, dl_name)
         worker.signals.update_signal.connect(self.update_receive_signal)
@@ -107,9 +128,11 @@ class GuiBehavior:
         if data:
             if not PyQt5.sip.isdeleted(data[2]):
                 for i in range(len(items)):
-                    if items[i]: data[i].setText(items[i])
+                    if items[i] and isinstance(items[i], str): data[i].setText(items[i])
+                    if items[i] and not isinstance(items[i], str):
+                        data[i].setValue(items[i])
     
-    def dl_directory_action(self):
+    def set_dl_directory(self):
         file_dialog = QFileDialog()
         file_dialog.setFileMode(QFileDialog.Directory)
         file_dialog.exec_()
@@ -124,7 +147,7 @@ class GuiBehavior:
         self.gui.settings.hide()
         
 
-    def exit_handler(self):
+    def handle_exit(self):
         active_downloads = []
         for w in self.download_workers:
             download = w.return_data()
@@ -143,7 +166,7 @@ class Gui:
         app = QApplication(sys.argv)
         app.setWindowIcon(QIcon(abs('ico.ico')))
         app.setStyle('Fusion')
-        app.aboutToQuit.connect(self.actions.exit_handler)
+        app.aboutToQuit.connect(self.actions.handle_exit)
         self.main_win()
         self.add_links_win()
         self.settings_win()
@@ -221,7 +244,7 @@ class Gui:
 
         # Add Button
         add_btn = QPushButton('Add Link(s)')
-        add_btn.clicked.connect(self.actions.add_links_action)
+        add_btn.clicked.connect(self.actions.add_links)
         layout.addWidget(add_btn)
 
         self.add_links.setMinimumSize(300, 200)
@@ -240,7 +263,7 @@ class Gui:
         hbox = QHBoxLayout()
 
         dl_directory_btn = QPushButton('Select..')
-        dl_directory_btn.clicked.connect(self.actions.dl_directory_action)
+        dl_directory_btn.clicked.connect(self.actions.set_dl_directory)
 
         self.dl_directory_input = QLineEdit()
         if self.actions.settings is not None:

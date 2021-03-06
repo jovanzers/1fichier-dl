@@ -6,6 +6,7 @@ import lxml.html
 import PyQt5.sip
 from random import choice
 from PyQt5.QtGui import QStandardItem
+from PyQt5.QtWidgets import QProgressBar
 
 PROXY_TXT_API = 'https://www.proxyscan.io/api/proxy?type=https&format=txt'
 PLATFORM = os.name
@@ -149,7 +150,7 @@ def download(worker, payload={'dl_no_ssl': 'on', 'dlinline': 'on'}, downloaded_s
                     total_per /= float(r.headers['Content-Length']) + downloaded_size
                     dl_speed = download_speed(bytes_read, start)
                     if worker.stopped or worker.paused: return name
-                    worker.signals.update_signal.emit(worker.data, [None, None, 'Downloading', dl_speed, f'{round(total_per, 1)}%'])
+                    worker.signals.update_signal.emit(worker.data, [None, None, 'Downloading', dl_speed, round(total_per, 1)])
             os.rename(worker.dl_directory + '/' + name, worker.dl_directory + '/' + name[:-11])
             worker.signals.update_signal.emit(worker.data, [None, None, 'Complete'])
         else:
