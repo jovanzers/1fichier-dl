@@ -113,7 +113,7 @@ class GuiBehavior:
             self.gui.table_model.appendRow(row)
             index = self.gui.table_model.index(self.gui.table_model.rowCount()-1, 4)
             progress_bar = QProgressBar()
-            progress_bar.setValue(progress)
+            progress_bar.setValue(int(progress)
             self.gui.table.setIndexWidget(index, progress_bar)
             row[4] = progress_bar
 
@@ -130,7 +130,7 @@ class GuiBehavior:
                 for i in range(len(items)):
                     if items[i] and isinstance(items[i], str): data[i].setText(items[i])
                     if items[i] and not isinstance(items[i], str):
-                        data[i].setValue(items[i])
+                        data[i].setValue(int(items[i]))
     
     def set_dl_directory(self):
         file_dialog = QFileDialog()
